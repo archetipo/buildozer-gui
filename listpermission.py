@@ -1,7 +1,11 @@
-class Build_o():
-	def __init__(self,pathbuild):
+#!/usr/bin/python
+#-*- coding:utf-8 -*-
+import string,os,sys
+
+class Android_Build_o():
+	def __init__(self):
 		self.arg_list=[]
-		self.path_builder=pathbuild
+		self.prj_path=''
 		self.permissions_list=["ACCESS_CHECKIN_PROPERTIES" ,
 								"ACCESS_COARSE_LOCATION" ,
 								"ACCESS_FINE_LOCATION" ,
@@ -119,45 +123,77 @@ class Build_o():
 								"WRITE_SYNC_SETTINGS"]
 
 
-	def add_argument(self,name,dest='',help='',required=False,default='',action='',nargs=''):
-		self.arg_list.append({'name':name,'dest':dest,'help':help,'required':required,'default':default,'action':action,'nargs':nargs})
+	def add_argument(self,name,type,help='',required=False):
+		self.arg_list.append({'name':name,'help':help,'value':type,'required':required,'added':False})
+
+	def add_argument_value(self,name,value):
+		for arg in self.arg_list:
+			if arg['name']==name:
+				if type(value)==type(arg['value']):
+					arg['value']=value
+					if arg['required']:arg['added']=True
+					return 1 # insert value ok
+				else:
+					return -1  # type mismatch
+		return 0 # name mismatch
+
+	def check_list(self):
+		error_list=''
+		for arg in self.arg_list:
+			if arg['required'] and (not arg['added']):
+				error_list+=arg['name']
+
+	def run_project(self):
+		if self.prj_path=='':
+			return False,'missing Project path' # project path error
+		check=self.check_list()
+		if check!='':
+			return False,'missing %s' % check
+		filename='%s%sbuildozer.spec' % (slef.prj_path,os.sep)
+		out_file = open(filename,"w")
+		out_file.write('[app]\n')
+		for arg in self.arg_list:
+			if type(arg['value'])==type(''):
+				str='%s=%s\n' % (arg['name'],arg['value'])
+				out_file.write('[app]\n')
+			elif type(arg['value'])==type([]):
+				str='%s=%s\n' % (arg['name'],','.join(arg['value']))
+				out_file.write('[app]\n')
+			elif type(arg['value'])==type(True):
+				str='%s=%s\n' % (arg['name'],int(arg['value']))
+				out_file.write('[app]\n')
+		out_file.close()
+		return True,'Spec File Created' #spec file create
 
 
-def get_args(pathbuild):
+def get_Android_args():
 
-	obj_builder=Build_o(pathbuild)
+	obj_builder=Android_Build_o()
 
-	obj_builder.add_argument('--package', dest='package', help='The name of the java package the project will be packaged under.', required=True)
-	obj_builder.add_argument('--name', dest='name', help='The human-readable name of the project.', required=True)
-	obj_builder.add_argument('--version', dest='version', help='The version number of the project. This should consist of numbers and dots, and should have the same number of groups of numbers as previous versions.', required=True)
-	obj_builder.add_argument('--numeric-version', dest='numeric_version', help='The numeric version number of the project. If not given, this is automatically computed from the version.')
-	obj_builder.add_argument('--dir', dest='dir', help='The directory containing public files for the project.')
-	obj_builder.add_argument('--private', dest='private', help='The directory containing additional private files for the project.')
-	obj_builder.add_argument('--launcher', dest='launcher', action='store_true',
-			help='Provide this argument to build a multi-obj_builder. launcher, rather than a single obj_builder..')
-	obj_builder.add_argument('--icon-name', dest='icon_name', help='The name of the project\'s launcher icon.')
-	obj_builder.add_argument('--orientation', dest='orientation', default='landscobj_builder.',
-			help='The orientation that the game will display in. Usually one of "landscobj_builder.", "portrait" or "sensor"')
-	obj_builder.add_argument('--permission', dest='permissions', action='obj_builder.end', help='The permissions to give this obj_builder..')
-	obj_builder.add_argument('--ignore-path', dest='ignore_path', action='obj_builder.end', help='Ignore path when building the obj_builder.')
-	obj_builder.add_argument('--icon', dest='icon', help='A png file to use as the icon for the obj_builder.lication.')
-	obj_builder.add_argument('--presplash', dest='presplash', help='A jpeg file to use as a screen while the obj_builder.lication is loading.')
-	obj_builder.add_argument('--ouya-category', dest='ouya_category', help='Valid values are GAME and obj_builder.. This must be specified to enable OUYA console support.')
-	obj_builder.add_argument('--ouya-icon', dest='ouya_icon', help='A png file to use as the icon for the obj_builder.lication if it is installed on an OUYA console.')
-	obj_builder.add_argument('--install-location', dest='install_location', default='auto', help='The default install location. Should be "auto", "preferExternal" or "internalOnly".')
-	obj_builder.add_argument('--compile-pyo', dest='compile_pyo', action='store_true', help='Compile all .py files to .pyo, and only distribute the compiled bytecode.')
-	obj_builder.add_argument('--intent-filters', dest='intent_filters', help='Add intent-filters xml rules to the AndroidManifest.xml file. The argument is a filename containing xml. The filename should be located relative to the python-for-android directory')
-	obj_builder.add_argument('--with-billing', dest='billing_pubkey', help='If set, the billing service will be added')
-	obj_builder.add_argument('--blacklist', dest='blacklist',
-		default='',
-		help='Use a blacklist file to match unwanted file in the final obj_builder.')
-	obj_builder.add_argument('--sdk', dest='sdk_version', default='8', help='Android SDK version to use. Default to 8')
-	obj_builder.add_argument('--minsdk', dest='min_sdk_version', default='8', help='Minimum Android SDK version to use. Default to 8')
-	obj_builder.add_argument('--window', dest='window', action='store_true',
-			help='Indicate if the obj_builder.lication will be windowed')
-	obj_builder.add_argument('--wakelock', dest='wakelock', action='store_true',
-			help='Indicate if the obj_builder.lication needs the device to stay on')
-	obj_builder.add_argument('command', nargs='*', help='The command to pass to ant (debug, release, installd, installr)')
-	obj_builder.add_argument('--add-jar', dest='add_jar', action='obj_builder.end', help='Add a Java .jar to the libs, so you can access its classes with pyjnius. You can specify this argument more than once to include multiple jars')
+	obj_builder.add_argument('title','',help='Title of your application',required=True)
+	obj_builder.add_argument('package.name','',help='The name of the java package the project will be packaged under.',required=True)
+	obj_builder.add_argument('version','',help='Application versionning',required=True)
+	obj_builder.add_argument('source.dir','',help='Source code where the main.py live',required=True)
+	obj_builder.add_argument('source.include_exts',['py','png','jpg','kv','atlas'],help='Source files to include (let empty to include all the files)')
+	obj_builder.add_argument('source.exclude_exts',['spec'],help='Source files to exclude (let empty to not excluding anything)')
+	obj_builder.add_argument('requirements',['kivy'],help='Application requirements')
+	obj_builder.add_argument('presplash.filename','%(source.dir)s/data/presplash.png',help='Presplash of the application')
+	obj_builder.add_argument('icon.filename','%(source.dir)s/data/icon.png',help='Icon of the application')
+	obj_builder.add_argument('fullscreen',True,help='Indicate if the application should be fullscreen or not')
+	obj_builder.add_argument('android.permissions',[],help='Permission')
+	obj_builder.add_argument('android.api','14',help='Android API to use',required=True)
+	obj_builder.add_argument('android.minapi','8',help='Minimum API required (8 = Android 2.2 devices',required=True)
+	obj_builder.add_argument('android.sdkversion','22',help='Android SDK version to use',required=True)
+	obj_builder.add_argument('android.ndkversion','8c',help='Android NDK version to use',required=True)
+	obj_builder.add_argument('android.ndk_path','',help='Android NDK directory (if empty, it will be automatically downloaded.)')
+	obj_builder.add_argument('android.sdk_path','',help='Android SDK directory (if empty, it will be automatically downloaded.)')
+	obj_builder.add_argument('android.entrypoint','',help='Android entry point, default is ok for Kivy-based app')
+	obj_builder.add_argument('android.add_jars','',help='Semicolon separated list of Java .jar files to add to the libs sothat pyjnius can access their classes. Don\'t add jars that you do not need,since extra jars can slow down the build process. Allows wildcards matching',)
+	obj_builder.add_argument('android.manifest.intent_filters','',help='XML file to include as an intent filters in <activity> tag',)
+
+
+
+
+
 	return obj_builder
 

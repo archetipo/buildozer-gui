@@ -19,22 +19,20 @@ from kivy.uix.treeview import TreeView, TreeViewLabel
 from kivy.uix.scrollview import ScrollView
 from kivy.uix.popup import Popup
 from kivy.uix.progressbar import ProgressBar
+from kivy.uix.image import Image
+
+from kivyconsole import KivyConsole
 import logcat as TLogCat
 import listpermission as lstp
+from xmlmanager import Xmloeobj
+from helper import InfoBubble,LabelInput,PopupWarning
+
 import subprocess
 import pkgutil
 import imp
 
 
-class LoadDialog(FloatLayout):
-    load = ObjectProperty(None)
-    cancel = ObjectProperty(None)
 
-
-class SaveDialog(FloatLayout):
-    save = ObjectProperty(None)
-    text_input = ObjectProperty(None)
-    cancel = ObjectProperty(None)
 
 
 
@@ -51,6 +49,7 @@ class TabTools(TabbedPanel):
 		self.sett_obj=None
 		self.lines_count=0
 		self.obj_builder=None
+		self.paths={}
 		self.builder_path=''
 		self.MainBx=None
 		self.apktype=''
@@ -66,11 +65,11 @@ class TabTools(TabbedPanel):
 		baseapp=os.path.join(self.py4a_path, 'dist')
 		baseapp=os.path.join(baseapp, 'default')
 		self.builder_path=baseapp
-		self.obj_builder=lstp.get_args(baseapp)
+		self.obj_builder=lstp.get_Android_args()
 
 		for tbp in self.tab_list:
 			if 'Distribuite' in tbp.text:
-				self.render_distribuite(tbp)
+				if self.sett_obj.configured:self.render_distribuite(tbp)
 			if 'Build' in tbp.text:
 				self.render_builder(tbp)
 
@@ -292,7 +291,7 @@ class TabTools(TabbedPanel):
 		self.rstLogcat.text+=self.line
 
 
-class Py4AGui(Screen):
+class BuildozerGui(Screen):
 	def __init__(self, **kwargs):
 		super(Screen, self).__init__(**kwargs)
 		self.tb = TabTools()
@@ -311,10 +310,12 @@ class Py4AGui(Screen):
 				df=True
 			elif df:
 				self.devices.append(line)
-		self.lbldevice.text="no device found"
+		self.lbldevice.text="search device...."
 		if len(self.devices)>0 and 'device' in self.devices[0] :
-			self.lbldevice.text='Device id 0 Found: %s' %self.devices[0].split('\t')[0]
 			Clock.unschedule(self.test_device)
+			self.lbldevice.text='%s' %self.devices[0].split('\t')[0]
+			self.wimg.source='data/images/connected.png'
+
 
 
 	def test_device(self, dt):
@@ -326,27 +327,25 @@ class Py4AGui(Screen):
 		self.tb.init()
 		self.path_adb=self.setting_obj.path_adb
 		self.tb.adbpath=self.path_adb
-		self.tb.py4a_path=self.setting_obj.py4a_path
+		self.tb.py4a_path=self.setting_obj.paths['py4a_path']
 		self.tb.sett_obj=self.setting_obj
 		self.tb.setup()
 		self.check_devices()
 		Clock.schedule_interval(self.test_device, 10)
 
-class Py4AGuiSettings(Screen):
+class BuildozerGuiStart(Screen):
+	pass
+
+class AndroidPageSettings(Screen):
 	def __init__(self, **kwargs):
 		super(Screen, self).__init__(**kwargs)
-		self.path_sdk=''
-		self.path_ndk=''
-		self.ndkver=''
-		self.apiver=''
-		self.path_adb=os.path.join(self.path_sdk,'platform-tools')
-		self.py4a_path=''
-
-		self.prj_path=''
-		self.prj_name=''
-		self.prj_package=''
-		self.prj_version='1.0'
-		self.prj_lst_perm='1.0'
+		self.wpath=os.getcwd()
+		self.cfgfile='config_base.xml'
+		self.xmlOcfg=Xmloeobj()
+		self.cfg_full_file='%s%s%s'%(self.wpath,os.sep,self.cfgfile)
+		self.paths={'path_sdk':'','path_ndk':'','ndkver':'','apiver':'','py4a_path':''}
+		self.path_adb=os.path.join(self.paths['path_sdk'],'platform-tools')
+		self.configured=False
 
 		#~ self.lst_perm=lstp.list
 		self.load_config()
@@ -354,21 +353,47 @@ class Py4AGuiSettings(Screen):
 	def load_config(self):
 		listsett=[]
 		cf=''
-		with open('settings.txt') as stream:
-			cf=stream.read()
-		listsett=cf.split('\n')
-		self.path_sdk=listsett[0]
-		self.lblpathsdk.text=self.path_sdk
-		self.path_ndk=listsett[1]
-		self.lblpathndk.text=self.path_ndk
-		self.ndkver=listsett[2]
-		self.lblpathndkv.text=self.ndkver
-		self.apiver=listsett[3]
-		self.lblpathsdkv.text=self.apiver
-		self.py4a_path=listsett[4]
-		self.lblpathp4a.text=self.py4a_path
-		self.path_adb=os.path.join(self.path_sdk,'platform-tools')
+		if not os.path.isfile(self.cfg_full_file):
+			bstr='<buildozer><cfg></cfg></buildozer>'
+			self.xmlOcfg.objfromstring(bstr)
+			self.xmlOcfg.writetagattrib('cfg','configured',str(self.configured))
+			for field_attrib in self.paths:
+				self.xmlOcfg.addsettagchild('cfg','field')
+				self.xmlOcfg.writeattrib('name',field_attrib)
+			self.xmlOcfg.saveinfile(self.cfg_full_file)
+		else:
+			self.xmlOcfg.objfromFile(self.cfg_full_file)
+		self.xmlOcfg.selecttag('cfg')
+		if self.xmlOcfg.currattr['configured']=='True':
+		#~ listsett=cf.split('\n')
+			self.paths['path_sdk']=self.xmlOcfg.readStringtagattrib('field','name','path_sdk')
+			self.lblpathsdk.text=self.paths['path_sdk']
+			self.paths['path_ndk']=self.xmlOcfg.readStringtagattrib('field','name','path_ndk')
+			self.lblpathndk.text=self.paths['path_ndk']
+			self.paths['ndkver']=self.xmlOcfg.readStringtagattrib('field','name','ndkver')
+			self.lblpathndkv.text=self.paths['ndkver']
+			self.paths['apiver']=self.xmlOcfg.readStringtagattrib('field','name','apiver')
+			self.lblpathsdkv.text=self.paths['apiver']
+			self.paths['py4a_path']=self.xmlOcfg.readStringtagattrib('field','name','py4a_path')
+			self.lblpathp4a.text=self.paths['py4a_path']
+			self.path_adb=os.path.join(self.paths['path_sdk'],'platform-tools')
+			self.configured=True
 		#~ self.export_path_distrib('numpy')
+	def save_config(self):
+		print 'saving'
+		self.paths['apiver']=self.lblpathsdkv.text
+		self.paths['ndkver']=self.lblpathndkv.text
+		self.paths['path_ndk']=self.lblpathndk.text
+		self.paths['path_sdk']=self.lblpathsdk.text
+		self.paths['py4a_path']=self.lblpathp4a.text
+		self.xmlOcfg.writeStringtagattrib('field','name','path_sdk',self.paths['path_sdk'])
+		self.xmlOcfg.writeStringtagattrib('field','name','path_ndk',self.paths['path_ndk'])
+		self.xmlOcfg.writeStringtagattrib('field','name','ndkver',self.paths['ndkver'])
+		self.xmlOcfg.writeStringtagattrib('field','name','apiver',self.paths['apiver'])
+		self.xmlOcfg.writeStringtagattrib('field','name','py4a_path',self.paths['py4a_path'])
+		self.xmlOcfg.writetagattrib('cfg','configured',str(True))
+		self.xmlOcfg.saveinfile(self.cfg_full_file)
+		self.configured=True
 
 	def distribuite(self,module):
 		 # Make a copy of the current environment
@@ -390,20 +415,20 @@ class Py4AGuiSettings(Screen):
 		p = subprocess.Popen(cmd, shell=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE, stderr=subprocess.STDOUT,env=os.environ,cwd=self.py4a_path,close_fds=True)
 		#~TODO Controll the acrive process!!
 
-
-
-class Py4AGuiApp(App):
+class BuildozerGuiApp(App):
 
 	def build(self):
 		sm = ScreenManager()
-		sc=Py4AGuiSettings(name='settings')
-		sp4a=Py4AGui(name='tool')
-		sp4a.addSettPage(sc)
-		sm.add_widget(sp4a)
-		sm.add_widget(sc)
+		start=BuildozerGuiStart(name='start')
+		asettp=AndroidPageSettings(name='android_settings')
+		bdz=BuildozerGui(name='android')
+		bdz.addSettPage(asettp)
+		sm.add_widget(start)
+		sm.add_widget(asettp)
+		sm.add_widget(bdz)
 		Clock.max_iteration = 100
 		return sm
 
 
 if __name__ == '__main__':
-	Py4AGuiApp().run()
+	BuildozerGuiApp().run()
