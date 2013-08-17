@@ -1,0 +1,269 @@
+
+#:import os os
+#:import partial functools.partial
+#:import Animation kivy.animation.Animation
+#:import Window kivy.core.window.Window
+
+[VSeparator@Widget]:
+    size_hint_x: None
+    width: 10
+    canvas:
+        Color:
+            rgba: .8, .8, .8, .3
+        Rectangle:
+            size: 4, self.height
+            pos: self.center_x, self.y
+
+[HSeparator@Label]:
+    size_hint_y: None
+    height: max(dp(45), self.texture_size[1] + dp(10))
+    text: ctx.text if 'text' in ctx else ''
+    text_size: self.width, None
+    valign: 'middle'
+    halign: 'center'
+    canvas.before:
+        Color:
+            rgba: .2, .2, .2, .8
+        Rectangle:
+            size: self.size
+            pos: self.pos
+
+<AndroidPageSettings>:
+    content: stcontent
+    lblpathsdk:label_sdk
+    lblpathndk:label_ndk
+    lblpathndkv:label_ndkv
+    lblpathsdkv:label_sdkv
+    lblpathp4a:label_p4a
+    canvas:
+        Color:
+            rgb: 1, 1, 1
+        Rectangle:
+            source: 'data/images/background.jpg'
+            size: self.size
+    BoxLayout:
+		orientation: 'vertical'
+		BoxLayout:
+			padding: '10dp'
+			spacing: '10dp'
+			size_hint: 1, None
+			pos_hint: {'top': 1}
+			height: '44dp'
+			Image:
+				size_hint: None, None
+				size: '24dp', '24dp'
+				source: 'data/logo/kivy-icon-64.png'
+				mipmap: True
+			Label:
+				height: '24dp'
+				text_size: self.width, None
+				color: (1, 1, 1, .8)
+				text: 'Buildozer Android Settings'
+
+			Button:
+				text: 'Tool'
+				on_press: root.manager.current = 'android'
+
+		BoxLayout:
+			padding: '10dp'
+			spacing: '10dp'
+			Label:
+				color: (1, 1, 1, .8)
+				text: 'SDK PATH'
+				height: 1
+			TextInput:
+				id:label_sdk
+				color: (1, 1, 1, .8)
+				height:1
+				#~ text:root.paths['path_sdk']
+				multiline: False
+		BoxLayout:
+			padding: '10dp'
+			spacing: '10dp'
+			Label:
+				color: (1, 1, 1, .8)
+				text:'NDK PATH'
+				height: 1
+			TextInput:
+				id:label_ndk
+				color: (1, 1, 1, .8)
+				height: 1
+				#~ text:root.paths['path_ndk']
+				multiline: False
+		BoxLayout:
+			padding: '10dp'
+			spacing: '10dp'
+			Label:
+				color: (1, 1, 1, .8)
+				text:'NDK PATH'
+			TextInput:
+				id:label_ndkv
+				#~ text:root.paths['ndkver']
+				color: (1, 1, 1, .8)
+		BoxLayout:
+			padding: '10dp'
+			spacing: '10dp'
+			Label:
+				color: (1, 1, 1, .8)
+				text:'SDK Vesion'
+			TextInput:
+				id:label_sdkv
+				#~ text:root.paths['apiver']
+				color: (1, 1, 1, .8)
+		BoxLayout:
+			padding: '10dp'
+			spacing: '10dp'
+			Label:
+				color: (1, 1, 1, .8)
+				text:'Py4A PATH'
+			TextInput:
+				id:label_p4a
+				#~ text:root.paths['py4a_path']
+				color: (1, 1, 1, .8)
+		Button:
+			text: 'Save'
+			on_release: root.save_config()
+		FloatLayout:
+			id: stcontent
+
+<BuildozerGui>:
+	wimg:wimg
+    content: content
+    lbldevice: label_device
+    canvas:
+        Color:
+            rgb: 1, 1, 1
+        Rectangle:
+            source: 'data/images/background.jpg'
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+
+        BoxLayout:
+            padding: '10dp'
+            spacing: '10dp'
+            size_hint: 1, None
+            pos_hint: {'top': 1}
+            height: '44dp'
+            Image:
+                size_hint: None, None
+                size: '24dp', '24dp'
+                source: 'data/logo/kivy-icon-64.png'
+                mipmap: True
+            Label:
+                height: '24dp'
+                text_size: self.width, None
+                color: (1, 1, 1, .8)
+                text: 'Python 4 Android Gui Tools'
+			Image:
+				id:wimg
+				size_hint: None, 1
+				size: '42dp', '42dp'
+				source: 'data/images/net2.gif'
+				mipmap: True
+            Label:
+				id:label_device
+                height: '24dp'
+                text_size: self.width, None
+                color: (1, 1, 1, .8)
+                text: ''
+			Button:
+				text: 'Start'
+				on_press: root.manager.current = 'start'
+			Button:
+				text: 'Settings'
+				on_press: root.manager.current = 'android_settings'
+
+		FloatLayout:
+			id: content
+
+
+
+<BuildozerGuiStart>:
+    content: stcontent
+    canvas:
+        Color:
+            rgb: 1, 1, 1
+        Rectangle:
+            source: 'data/images/background.jpg'
+            size: self.size
+    BoxLayout:
+		orientation: 'vertical'
+		BoxLayout:
+            padding: '10dp'
+            spacing: '10dp'
+            size_hint: 1, None
+            pos_hint: {'top': 1}
+            height: '44dp'
+            Image:
+                size_hint: None, None
+                size: '24dp', '24dp'
+                source: 'data/logo/kivy-icon-64.png'
+                mipmap: True
+            Label:
+				font_size: '22sp'
+                text_size: self.width, None
+                color: (1, 1, 1, .8)
+                text: 'Buildozer Gui Tools Select Os'
+		BoxLayout:
+			size_hint: 1, 1
+			padding: '10dp'
+			spacing: '10dp'
+			#~ size_hint: 1, 1
+			#~ height: '44dp'
+			Button:
+				pos_hint: {'top': .5}
+				font_size: '18sp'
+				text: 'Tool Android'
+				on_press: root.manager.current = 'android'
+			Button:
+				pos_hint: {'top': .5}
+				font_size: '18sp'
+				disabled:True
+				text: 'Tool iOs'
+				on_press: root.manager.current = 'ios'
+
+
+		FloatLayout:
+			id: stcontent
+
+
+<TabTools>:
+	rstLogcat:rt_logcat
+	size_hint: 1.0, .9
+	pos_hint: {'center_x': .5, 'center_y': .46}
+	do_default_tab: False
+	TabbedPanelItem:
+		text: 'Distribuite'
+		Label:
+			text:'Select modules'
+	TabbedPanelItem:
+		text: 'Build & Install'
+		Label:
+			text: 'Build Install a project'
+	TabbedPanelItem:
+		text: 'Test LogCat'
+		size_hint: 1.0, 1.0
+		BoxLayout:
+			BoxLayout:
+				orientation: 'vertical'
+				padding: '2dp'
+				spacing: '2dp'
+				pos_hint: {'top': 1}
+				height: '44dp'
+				BoxLayout:
+					size_hint: 1, 0.1
+					Button:
+						size_hint: 1, 1
+						text: 'Start Logcat'
+						on_press: root.startLogcat()
+					Button:
+						size_hint: 1, 1
+						text: 'Stop Logcat'
+						on_press: root.stopLogcat()
+				RstDocument:
+					pos_hint: {'center_x': .5, 'center_y': .5}
+					id:rt_logcat
+					text: 'LogCat [color=#D0D003][b]yourlines[/b][/color]\n Ciaoooo'
+

@@ -12,6 +12,8 @@ test.py
 *.pyc
 testsuite
 .packages
+config_base.xml
+*.xml
 
 #ECLIPSE + PYDEV
 .project
