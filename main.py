@@ -34,7 +34,14 @@ import imp
 
 
 
-
+class Project():
+	def __init__(self):
+		self.open=False
+		self.saved=False
+		self.basep=os.path.join(os.gecwd(),'projects')
+		self.tmpfile='tmp.xml'
+		self.base_prj_xml='<buildozer><prj></prj></buildozer>'
+		self.xmlOprj=Xmloeobj()
 
 class TabTools(TabbedPanel):
 	#workaroud if call __init__() and super class
@@ -52,14 +59,18 @@ class TabTools(TabbedPanel):
 		self.paths={}
 		self.builder_path=''
 		self.MainBx=None
+		self.launcher_recipe=('sqlite3 openssl pyopenssl lxml audiostream cymunk ffmpeg pil pyjnius twisted kivy').split()
 		self.apktype=''
+		self.kvc=None
 		self.pb = None
+
 		self.list_module_to_dist=[]
 		self.list_permission_to_build=[]
 
-	def setup(self):
+	def setup(self,console):
 		self.datalogcat=[]
 		self.LogCat=None
+		self.kvc=console
 		self.LogCat=TLogCat.ThLogCat(self)
 		self.device_is_connected=False
 		baseapp=os.path.join(self.py4a_path, 'dist')
@@ -69,7 +80,8 @@ class TabTools(TabbedPanel):
 
 		for tbp in self.tab_list:
 			if 'Distribuite' in tbp.text:
-				if self.sett_obj.configured:self.render_distribuite(tbp)
+				if self.sett_obj.configured:
+					self.render_distribuite(tbp)
 			if 'Build' in tbp.text:
 				self.render_builder(tbp)
 
@@ -77,12 +89,12 @@ class TabTools(TabbedPanel):
 
 	def render_builder(self,tab):
 		self.MainBx=BoxLayout(orientation='vertical')
+		self.MainBx.size_hint=( 1, 1)
 		UpBx=BoxLayout()
 
 		UpBx.padding=10
 		UpBx.spacing=10
 		UpBx.size_hint = (1,.99)
-		#~ UpBx.pos_hint= {'x': 0, 'y': 0}
 
 		btnBuild=Button(text='Build',size_hint=(1, 1))
 		btnBuild.bind(on_press=self.start_build)
@@ -243,23 +255,55 @@ class TabTools(TabbedPanel):
 					self.list_permission_to_build.pop(i)
 
 	def render_distribuite(self,tab):
-		Blayout=BoxLayout(orientation='vertical')
+		self.dist_layout = GridLayout(cols=2)
+		self.Blayout=BoxLayout(orientation='vertical')
+		self.Blayout.size_hint=( 1, 1)
 		btnDistr=Button(text='Start Distribuite',size_hint=(1, .1))
 		btnDistr.bind(on_press=self.start_dist)
-		layout = GridLayout(cols=4)
+		self.btnReckivy=ToggleButton(text='Choose recipes for Kivy Launcher',size_hint=(1, .1))
+		self.btnReckivy.bind(on_release=self.select_kivy_rec)
+
+		self.recipe_layout = GridLayout(cols=4)
 		thedir=os.path.join(self.py4a_path,'recipes')
 		recipes=[ name for name in os.listdir(thedir) if os.path.isdir(os.path.join(thedir, name)) ]
 		for r in recipes:
 			t=ToggleButton(text=r)
 			t.bind(state=self.add_remove)
-			layout.add_widget(t)
-		Blayout.add_widget(btnDistr)
-		Blayout.add_widget(layout)
-		tab.add_widget(Blayout)
+			self.recipe_layout.add_widget(t)
+		self.Blayout.add_widget(btnDistr)
+		self.Blayout.add_widget(self.btnReckivy)
+		self.Blayout.add_widget(self.recipe_layout)
+
+
+
+
+		self.dist_layout.add_widget(self.Blayout)
+		self.dist_layout.add_widget(self.kvc)
+
+
+		tab.add_widget(self.dist_layout)
+
+
+	def select_kivy_rec(self,instance):
+		for t in self.recipe_layout.children:
+			if type(t)==type(ToggleButton()):
+				if t.text in self.launcher_recipe:
+						t.trigger_action(duration=0)
+
 
 	def start_dist(self,instance):
-		self.sett_obj.distribuite(' '.join(self.list_module_to_dist))
+		self.kvc.size_hint=(.8, 1)
+		self.Blayout.size_hint=(.2, 1)
+		command,env=self.sett_obj.distribuite(' '.join(self.list_module_to_dist))
+		self.kvc.bind(on_subprocess_done=self.end_dist)
+		self.kvc.environment=env
+		wr = self.kvc.stdin.write
+		wr(command)
 		instance.text='Distribuited'
+
+	def end_dist(self,*args):
+		self.kvc.size_hint=(.01, 1)
+		self.Blayout.size_hint=(1, 1)
 
 	def add_remove(self,instance,value):
 		if value=='down':
@@ -298,7 +342,12 @@ class BuildozerGui(Screen):
 		self.setting_obj=None
 		self.add_widget(self.tb)
 		self.devices=[]
-
+		self.kvc=KivyConsole()
+		self.kvc.size_hint=(.0, 1)
+		self.kvc.foreground_color=( .8811, .8811, .8811, 1)
+		self.kvc.background_color=( .1188, .1188, .1188, 1)
+		self.kvc.shell=True
+		self.kvc.font_size= '13.5sp'
 
 	def check_devices(self):
 		df=False
@@ -329,7 +378,7 @@ class BuildozerGui(Screen):
 		self.tb.adbpath=self.path_adb
 		self.tb.py4a_path=self.setting_obj.paths['py4a_path']
 		self.tb.sett_obj=self.setting_obj
-		self.tb.setup()
+		self.tb.setup(self.kvc)
 		self.check_devices()
 		Clock.schedule_interval(self.test_device, 10)
 
@@ -365,7 +414,6 @@ class AndroidPageSettings(Screen):
 			self.xmlOcfg.objfromFile(self.cfg_full_file)
 		self.xmlOcfg.selecttag('cfg')
 		if self.xmlOcfg.currattr['configured']=='True':
-		#~ listsett=cf.split('\n')
 			self.paths['path_sdk']=self.xmlOcfg.readStringtagattrib('field','name','path_sdk')
 			self.lblpathsdk.text=self.paths['path_sdk']
 			self.paths['path_ndk']=self.xmlOcfg.readStringtagattrib('field','name','path_ndk')
@@ -378,9 +426,8 @@ class AndroidPageSettings(Screen):
 			self.lblpathp4a.text=self.paths['py4a_path']
 			self.path_adb=os.path.join(self.paths['path_sdk'],'platform-tools')
 			self.configured=True
-		#~ self.export_path_distrib('numpy')
+
 	def save_config(self):
-		print 'saving'
 		self.paths['apiver']=self.lblpathsdkv.text
 		self.paths['ndkver']=self.lblpathndkv.text
 		self.paths['path_ndk']=self.lblpathndk.text
@@ -397,10 +444,10 @@ class AndroidPageSettings(Screen):
 
 	def distribuite(self,module):
 		 # Make a copy of the current environment
-		os.environ['ANDROIDSDK'] ='%s' % (self.path_sdk)
-		os.environ['ANDROIDNDK'] ='%s' % (self.path_ndk)
-		os.environ['ANDROIDNDKVER'] ='%s' % (self.ndkver)
-		os.environ['ANDROIDAPI'] ='%s' % (self.apiver)
+		os.environ['ANDROIDSDK'] ='%s' % (self.paths['path_sdk'])
+		os.environ['ANDROIDNDK'] ='%s' % (self.paths['path_ndk'])
+		os.environ['ANDROIDNDKVER'] ='%s' % (self.paths['ndkver'])
+		os.environ['ANDROIDAPI'] ='%s' % (self.paths['apiver'])
 		#~  Search librrfaker.so for add to preload env path
 		cmd_pd='locate librrfaker.so'
 		p = subprocess.Popen(cmd_pd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
@@ -410,10 +457,11 @@ class AndroidPageSettings(Screen):
 				preload_path=line
 		os.environ['LD_PRELOAD'] ='%s' % preload_path.split('\n')[0]
 		d = dict(os.environ.copy())
-		cmd4='%s/./distribute.sh -m "%s"' % (self.py4a_path,module)
-		cmd="gnome-terminal --working-directory=%s --title='Distribuie Py4a modules %s' --command='%s' " % (self.py4a_path,module,cmd4)
-		p = subprocess.Popen(cmd, shell=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE, stderr=subprocess.STDOUT,env=os.environ,cwd=self.py4a_path,close_fds=True)
+		cmd4='%s/./distribute.sh -m "%s"' % (self.paths['py4a_path'],module)
+		#~ cmd="gnome-terminal --working-directory=%s --title='Distribuie Py4a modules %s' --command='%s' " % (self.paths['py4a_path'],module,cmd4)
+		#~ p = subprocess.Popen(cmd, shell=True,stdin=subprocess.PIPE,stdout=subprocess.PIPE, stderr=subprocess.STDOUT,env=os.environ,cwd=self.paths['py4a_path'],close_fds=True)
 		#~TODO Controll the acrive process!!
+		return cmd4,d
 
 class BuildozerGuiApp(App):
 

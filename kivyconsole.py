@@ -87,6 +87,7 @@ import shlex
 import subprocess
 import thread
 import os
+import re
 import sys
 from functools import partial
 from pygments.lexers import BashSessionLexer
@@ -242,6 +243,7 @@ class KivyConsole(GridLayout):
         self.cur_dir = os.getcwdu()
         self.stdout = std_in_out(self, 'stdout')
         self.stdin = std_in_out(self, 'stdin')
+
         #self.stderror = stderror(self)
         # delayed initialisation
         Clock.schedule_once(self._initialize)
@@ -282,22 +284,24 @@ class KivyConsole(GridLayout):
                 os.path.basename(self.cur_dir))
 
     def _change_txtcache(self, *args):
-        tihb = self.txtinput_history_box
-        tihb.text = ''.join(self.textcache)
-        if not self.get_root_window():
-            return
-        tihb.height = max((len(tihb._lines) + 1) *
-            (tihb.line_height + tihb.line_spacing), tihb.parent.height)
-        tihb.parent.scroll_y = 0
+		tihb = self.txtinput_history_box
+
+		tihb.text = ''.join(self.textcache)
+		if not self.get_root_window():
+			return
+		tihb.height = max((len(tihb._lines) + 1) *
+			(tihb.line_height + tihb.line_spacing), tihb.parent.height)
+		tihb.parent.scroll_y = 0
 
     def on_text(self, instance, txt):
         # check if history_box has more text than indicated buy
         # self.cached_history and remove excess lines from top
+
         if txt == '':
             return
         try:
-            #self._skip_textcache = True
-            self.textcache = self.textcache[-self.cached_history:]
+			#self._skip_textcache = True
+			self.textcache = self.textcache[-self.cached_history:]
         except IndexError:
             pass
             #self._skip_textcache = False
@@ -500,167 +504,171 @@ class KivyConsole(GridLayout):
                 instance.text = u''
 
     def add_to_cache(self, _string):
-        #os.write(self.stdout.stdout_pipe, _string.encode('utf-8'))
-        #self.stdout.flush()
-        self.textcache.append(_string)
-        _string = None
+		#os.write(self.stdout.stdout_pipe, _string.encode('utf-8'))
+		#self.stdout.flush()
+
+		self.textcache.append(_string)
+		_string = None
 
     def on_enter(self, *l):
-        txtinput_command_line = self.txtinput_command_line
-        add_to_cache = self.add_to_cache
-        command_history = self.command_history
+		txtinput_command_line = self.txtinput_command_line
+		add_to_cache = self.add_to_cache
+		command_history = self.command_history
 
-        def remove_command_interaction_widgets(*l):
-            # command finished:remove widget responsible for interaction with it
-            parent.remove_widget(self.interact_layout)
-            self.interact_layout = None
-            # enable running a new command
-            parent.add_widget(self.txtinput_command_line)
-            self._focus(txtinput_command_line, True)
-            Clock.schedule_once(self._change_txtcache, .1)
-            self.dispatch('on_subprocess_done')
+		def remove_command_interaction_widgets(*l):
+			# command finished:remove widget responsible for interaction with it
+			parent.remove_widget(self.interact_layout)
+			self.interact_layout = None
+			# enable running a new command
+			parent.add_widget(self.txtinput_command_line)
+			self._focus(txtinput_command_line, True)
+			Clock.schedule_once(self._change_txtcache, .1)
+			self.dispatch('on_subprocess_done')
 
-        def run_cmd(*l):
-            # this is run inside a thread so take care, avoid gui ops
-            try:
-                comand = command.encode('utf-8')
-                cmd = shlex.split(str(command))\
-                         if not self.shell else command
-            except Exception as err:
-                cmd = ''
-                self.add_to_cache(u''.join((str(err), ' <', command, ' >\n')))
-            if len(cmd) > 0:
-                prev_stdout = sys.stdout
-                sys.stdout = self.stdout
-                Clock_schedule_once = Clock.schedule_once
-                try:
-                    #execute command
-                    #~ logger.Info('test command %s' % cmd)
-                    self.popen_obj = popen = subprocess.Popen(
-                        cmd,
-                        bufsize=0,
-                        stdout=subprocess.PIPE,
-                        stdin=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                        preexec_fn=None,
-                        close_fds=False,
-                        shell=self.shell,
-                        cwd=self.cur_dir,
-                        env=self.environment,
-                        universal_newlines=False,
-                        startupinfo=None,
-                        creationflags=0)
-                    popen_stdout_r = popen.stdout.readline
-                    popen_stdout_flush = popen.stdout.flush
-                    txt = popen_stdout_r()
-                    plat = platform()
-                    while txt != '':
-                        # skip flush on android
-                        if plat[0] != 'a':
-                            popen_stdout_flush()
-                        add_to_cache(txt.decode('utf8'))
-                        txt = popen_stdout_r()
-                except OSError or ValueError, err:
-                    add_to_cache(u''.join((str(err.strerror),
-                                                ' < ', command, ' >\n')))
-                sys.stdout = prev_stdout
-            self.popen_obj = None
-            Clock.schedule_once(remove_command_interaction_widgets)
-            self.command_status = 'closed'
+		def run_cmd(*l):
+			# this is run inside a thread so take care, avoid gui ops
+			try:
+				comand = command.encode('utf-8')
+				cmd = shlex.split(str(command))\
+						 if not self.shell else command
+			except Exception as err:
+				cmd = ''
+				self.add_to_cache(u''.join((str(err), ' <', command, ' >\n')))
+			if len(cmd) > 0:
+				prev_stdout = sys.stdout
+				sys.stdout = self.stdout
+				Clock_schedule_once = Clock.schedule_once
+				try:
+					#execute command
+					#~ logger.Info('test command %s' % cmd)
+					self.popen_obj = popen = subprocess.Popen(
+						cmd,
+						bufsize=0,
+						stdout=subprocess.PIPE,
+						stdin=subprocess.PIPE,
+						stderr=subprocess.STDOUT,
+						preexec_fn=None,
+						close_fds=False,
+						shell=self.shell,
+						cwd=self.cur_dir,
+						env=self.environment,
+						universal_newlines=False,
+						startupinfo=None,
+						creationflags=0)
+					popen_stdout_r = popen.stdout.readline
+					popen_stdout_flush = popen.stdout.flush
+					txt = popen_stdout_r()
+					plat = platform()
+					while txt != '':
+						# skip flush on android
+						if plat[0] != 'a':
+							popen_stdout_flush()
 
-        # append text to textcache
-        add_to_cache(u''.join((self.txtinput_command_line.text, '\n')))
-        command = txtinput_command_line.text[len(self.prompt()):]
+						add_to_cache(txt.decode('utf8'))
 
-        if command == '':
-            self.txtinput_command_line_refocus = True
-            return
+						txt = popen_stdout_r()
+				except OSError or ValueError, err:
+					add_to_cache(u''.join((str(err.strerror),
+												' < ', command, ' >\n')))
+				sys.stdout = prev_stdout
+			self.popen_obj = None
+			Clock.schedule_once(remove_command_interaction_widgets)
+			self.command_status = 'closed'
 
-        # store command in command_history
-        if self.command_history_pos > 0:
-            self.command_history_pos = len(command_history)
-            if command_history[self.command_history_pos - 1] != command:
-                command_history.append(command)
-        else:
-            command_history.append(command)
+		# append text to textcache
+		add_to_cache(u''.join((self.txtinput_command_line.text, '\n')))
+		command = txtinput_command_line.text[len(self.prompt()):]
 
-        len_command_history = len(command_history)
-        self.command_history_pos = len(command_history)
+		if command == '':
+			self.txtinput_command_line_refocus = True
+			return
 
-        # on reaching limit(cached_lines) pop first command
-        if len_command_history >= self.cached_commands:
-            self.command_history = command_history[1:]
+		# store command in command_history
+		if self.command_history_pos > 0:
+			self.command_history_pos = len(command_history)
+			if command_history[self.command_history_pos - 1] != command:
+				command_history.append(command)
+		else:
+			command_history.append(command)
 
-        # replce $PATH with
-        command = os.path.expandvars(command)
+		len_command_history = len(command_history)
+		self.command_history_pos = len(command_history)
 
-        # if command = cd change directory
-        if command.startswith('cd ') or command.startswith('export '):
-            if command[0] == 'e':
-                e_q = command[7:].find('=')
-                _exprt = command[7:]
-                if e_q:
-                    os.environ[_exprt[:e_q]] = _exprt[e_q+1:]
-                    self.environment = os.environ.copy()
-            else:
-                try:
-                    if command[3] == os.sep:
-                        os.chdir(command[3:])
-                    else:
-                        os.chdir(self.cur_dir + os.sep + command[3:])
-                    self.cur_dir = os.getcwdu()
-                except OSError, err:
-                    Logger.debug('Shell Console: err:' + err.strerror +
-                                ' directory:' + command[3:])
-                    add_to_cache(u''.join((err.strerror, '\n')))
-            add_to_cache(u''.join((txtinput_command_line.text, '\n')))
-            txtinput_command_line.text = self.prompt()
-            self.txtinput_command_line_refocus = True
-            return
+		# on reaching limit(cached_lines) pop first command
+		if len_command_history >= self.cached_commands:
+			self.command_history = command_history[1:]
 
-        txtinput_command_line.text = self.prompt()
-        # store output in textcache
-        parent = txtinput_command_line.parent
-        # disable running a new command while and old one is running
-        parent.remove_widget(txtinput_command_line)
-        # add widget for interaction with the running command
-        txtinput_run_command = TextInput(multiline=False,
-                                         font_size=self.font_size,
-                                         font_name=self.font_name)
+		# replce $PATH with
+		command = os.path.expandvars(command)
 
-        def interact_with_command(*l):
-            popen_obj = self.popen_obj
-            if not popen_obj:
-                return
-            txt = l[0].text + u'\n'
-            popen_obj_stdin = popen_obj.stdin
-            popen_obj_stdin.write(txt.encode('utf-8'))
-            popen_obj_stdin.flush()
-            self.txtinput_run_command_refocus = True
+		# if command = cd change directory
+		if command.startswith('cd ') or command.startswith('export '):
+			if command[0] == 'e':
+				e_q = command[7:].find('=')
+				_exprt = command[7:]
+				if e_q:
+					os.environ[_exprt[:e_q]] = _exprt[e_q+1:]
+					self.environment = os.environ.copy()
+			else:
+				try:
+					if command[3] == os.sep:
+						os.chdir(command[3:])
+					else:
+						os.chdir(self.cur_dir + os.sep + command[3:])
+					self.cur_dir = os.getcwdu()
+				except OSError, err:
+					Logger.debug('Shell Console: err:' + err.strerror +
+								' directory:' + command[3:])
+					add_to_cache(u''.join((err.strerror, '\n')))
+			add_to_cache(u''.join((txtinput_command_line.text, '\n')))
+			txtinput_command_line.text = self.prompt()
+			self.txtinput_command_line_refocus = True
+			return
 
-        self.txtinput_run_command_refocus = False
-        txtinput_run_command.bind(on_text_validate=interact_with_command)
-        txtinput_run_command.bind(focus=self.on_focus)
-        btn_kill = Button(text="kill",
-                        width=27,
-                        size_hint=(None, 1))
+		txtinput_command_line.text = self.prompt()
+		# store output in textcache
+		parent = txtinput_command_line.parent
+		# disable running a new command while and old one is running
+		parent.remove_widget(txtinput_command_line)
+		# add widget for interaction with the running command
+		txtinput_run_command = TextInput(multiline=False,
+										 font_size=self.font_size,
+										 font_name=self.font_name)
 
-        def kill_process(*l):
-            self.popen_obj.kill()
+		def interact_with_command(*l):
+			popen_obj = self.popen_obj
+			if not popen_obj:
+				return
+			txt = l[0].text + u'\n'
+			popen_obj_stdin = popen_obj.stdin
+			popen_obj_stdin.write(txt.encode('utf-8'))
+			popen_obj_stdin.flush()
+			self.txtinput_run_command_refocus = True
 
-        self.interact_layout = il = GridLayout(rows=1, cols=2, height=27,
-            size_hint=(1, None))
-        btn_kill.bind(on_press=kill_process)
-        il.add_widget(txtinput_run_command)
-        il.add_widget(btn_kill)
-        parent.add_widget(il)
+		self.txtinput_run_command_refocus = False
+		txtinput_run_command.bind(on_text_validate=interact_with_command)
+		txtinput_run_command.bind(focus=self.on_focus)
+		btn_kill = Button(text="kill",
+						width=27,
+						size_hint=(None, 1))
 
-        txtinput_run_command.focus = True
-        self.command_status = 'started'
-        thread.start_new_thread(run_cmd, ())
+		def kill_process(*l):
+			self.popen_obj.kill()
+
+		self.interact_layout = il = GridLayout(rows=1, cols=2, height=27,
+			size_hint=(1, None))
+		btn_kill.bind(on_press=kill_process)
+		il.add_widget(txtinput_run_command)
+		il.add_widget(btn_kill)
+		parent.add_widget(il)
+
+		txtinput_run_command.focus = True
+		self.command_status = 'started'
+		thread.start_new_thread(run_cmd, ())
 
     def on_subprocess_done(self, *args):
-        pass
+		Logger.debug('end of process')
+        #~ pass
 
 
 class std_in_out(object):
@@ -669,12 +677,15 @@ class std_in_out(object):
     def __init__(self, obj, mode='stdout'):
         self.obj = obj
         self.mode = mode
+        #~ self.reset_pattern_obj = re.compile(r'\033[[0-99;]+m')
+        self.reset_pattern_obj = re.compile(r'\x1B\[([0-9]{1,2};[0-9]{1,2}?)?[m|K]')
         self.stdin_pipe, self.stdout_pipe = os.pipe()
         thread.start_new_thread(self.read_from_in_pipe, ())
         self.textcache = None
 
     def update_cache(self, text_line, obj, *l):
-        obj.textcache.append(text_line.decode('utf-8'))
+
+		obj.textcache.append(text_line.decode('utf-8'))
 
     def read_from_in_pipe(self, *l):
         txt = '\n'
@@ -714,16 +725,19 @@ class std_in_out(object):
         return self.stdout_pipe
 
     def write(self, s):
-        Logger.debug('write called with command:' + str(s))
-        if self.mode == 'stdout':
-            self.obj.add_to_cache(s)
-            self.flush()
-        else:
-            # process.stdout.write ...run command
-            if self.mode == 'stdin':
-                self.obj.txtinput_command_line.text = ''.join((
-                    self.obj.prompt(), s))
-                self.obj.on_enter()
+		if '[3' in s:
+			s=s[8:]
+			s=s[:-8]
+		Logger.debug('write called with command:' + s)
+		if self.mode == 'stdout':
+			self.obj.add_to_cache(s)
+			self.flush()
+		else:
+			# process.stdout.write ...run command
+			if self.mode == 'stdin':
+				self.obj.txtinput_command_line.text = ''.join((
+					self.obj.prompt(), s))
+				self.obj.on_enter()
 
     def read(self, no_of_bytes=0):
         if self.mode == 'stdin':
@@ -769,8 +783,12 @@ class std_in_out(object):
         return
 
 if __name__ == '__main__':
-    from kivy.base import runTouchApp
-    console = KivyConsole()
-    console.shell=False
-    console.stdin.write('echo '+'hello world')
-    runTouchApp(console)
+	from kivy.base import runTouchApp
+	console = KivyConsole()
+	console.shell=False
+
+	msg="\033[31;01mHello World\033[39;49m"
+	#~ msg=msg[8:]
+	#~ msg=msg[:-8]
+	console.stdin.write('echo '+msg)
+	runTouchApp(console)
